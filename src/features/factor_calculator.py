@@ -1,84 +1,46 @@
+# src/features/factor_calculator.py
 """
 factor_calculator.py
-
-Computes basic technical indicators (factors) for stock data.
-Inputs: CSV or Pandas DataFrame with OHLCV data
-Outputs: DataFrame with added factor columns
+Calculates trading factors/indicators for a given stock DataFrame.
 """
 
 import pandas as pd
-import numpy as np
-from pathlib import Path
 
 
-def calculate_moving_average(df: pd.DataFrame, window: int, price_col: str = "Close") -> pd.Series:
-    """Calculate Simple Moving Average (SMA)."""
-    return df[price_col].rolling(window=window).mean()
+class FactorCalculator:
+    def __init__(self, df: pd.DataFrame):
+        """
+        :param df: DataFrame with columns: Date, Open, High, Low, Close, Adj_Close, Volume
+        """
+        self.df = df.copy()
+        self.df.sort_values("Date", inplace=True)
 
+    def add_moving_averages(self, short_window=10, long_window=50):
+        self.df["SMA_Short"] = self.df["Close"].rolling(window=short_window).mean()
+        self.df["SMA_Long"] = self.df["Close"].rolling(window=long_window).mean()
+        return self
 
-def calculate_rsi(df: pd.DataFrame, window: int = 14, price_col: str = "Close") -> pd.Series:
-    """Calculate Relative Strength Index (RSI)."""
-    delta = df[price_col].diff()
-    gain = np.where(delta > 0, delta, 0)
-    loss = np.where(delta < 0, -delta, 0)
+    def add_rsi(self, period=14):
+        delta = self.df["Close"].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
 
-    avg_gain = pd.Series(gain).rolling(window=window).mean()
-    avg_loss = pd.Series(loss).rolling(window=window).mean()
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
 
-    rs = avg_gain / (avg_loss + 1e-10)  # avoid division by zero
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+        rs = avg_gain / avg_loss
+        self.df["RSI"] = 100 - (100 / (1 + rs))
+        return self
 
+    def add_macd(self, short_window=12, long_window=26, signal_window=9):
+        exp1 = self.df["Close"].ewm(span=short_window, adjust=False).mean()
+        exp2 = self.df["Close"].ewm(span=long_window, adjust=False).mean()
+        self.df["MACD"] = exp1 - exp2
+        self.df["Signal"] = self.df["MACD"].ewm(span=signal_window, adjust=False).mean()
+        return self
 
-def calculate_macd(df: pd.DataFrame, short_window: int = 12, long_window: int = 26, signal_window: int = 9, price_col: str = "Close") -> pd.DataFrame:
-    """Calculate MACD (Moving Average Convergence Divergence)."""
-    short_ema = df[price_col].ewm(span=short_window, adjust=False).mean()
-    long_ema = df[price_col].ewm(span=long_window, adjust=False).mean()
-    macd = short_ema - long_ema
-    signal = macd.ewm(span=signal_window, adjust=False).mean()
-    hist = macd - signal
-
-    return pd.DataFrame({
-        "MACD": macd,
-        "MACD_Signal": signal,
-        "MACD_Hist": hist
-    })
-
-
-def add_factors(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add multiple factors to the DataFrame.
-    Expects columns: Date, Open, High, Low, Close, Volume
-    """
-    df = df.copy()
-
-    # Moving Averages
-    df["SMA_5"] = calculate_moving_average(df, 5)
-    df["SMA_20"] = calculate_moving_average(df, 20)
-
-    # RSI
-    df["RSI_14"] = calculate_rsi(df, 14)
-
-    # MACD
-    macd_df = calculate_macd(df)
-    df = pd.concat([df, macd_df], axis=1)
-
-    return df
-
-
-def process_csv(input_path: str, output_path: str):
-    """
-    Read historical data from CSV, calculate factors, and save to new CSV.
-    """
-    df = pd.read_csv(input_path)
-    df = add_factors(df)
-    Path(output_path).parent.mkdir(exist_ok=True)
-    df.to_csv(output_path, index=False)
-    print(f"✅ Factors saved to {output_path}")
-
-
-if __name__ == "__main__":
-    # Example usage: process a single file
-    input_file = "data/AAPL_historical.csv"
-    output_file = "data/AAPL_factors.csv"
-    process_csv(input_file, output_file)
+    def add_all_factors(self):
+        self.add_moving_averages()
+        self.add_rsi()
+        self.add_macd()
+        return self.df

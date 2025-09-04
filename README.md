@@ -26,5 +26,8 @@ Best Practice: Use __init__.py + python -m approach. This is the cleanest for a 
 ```
 python3 -m src.backtester.backtester 
 
+python -m src.execution.execution_adapter
 
 python3 -m src.visualization.visualizer
+
+python -m src.jobs.fetch_incremental_data
