@@ -7,7 +7,7 @@ All public functions are async; call them with asyncio.run() from sync code.
 
 import asyncpg
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 
 from src.db.database import DB_DSN, SCHEMA
 
@@ -163,6 +163,34 @@ async def save_symbol_groups(run_date: date, groups: dict) -> None:
             INSERT INTO {SCHEMA}.symbol_groups (run_date, group_name, symbol)
             VALUES ($1, $2, $3)
             ON CONFLICT (run_date, group_name, symbol) DO NOTHING
+            """,
+            records,
+        )
+    finally:
+        await conn.close()
+
+
+async def save_signal_history(
+    run_date: date,
+    analysis_date: str,
+    group_results: dict[str, list[tuple]],
+) -> None:
+    """Append one row per symbol per pipeline run to signal_history."""
+    analysis_date_obj = datetime.strptime(analysis_date, "%Y-%m-%d").date()
+    records = [
+        (run_date, analysis_date_obj, symbol, group_name, signal, price)
+        for group_name, rows in group_results.items()
+        for symbol, signal, price in rows
+    ]
+    if not records:
+        return
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        await conn.executemany(
+            f"""
+            INSERT INTO {SCHEMA}.signal_history
+                (run_date, analysis_date, symbol, group_name, signal, price)
+            VALUES ($1, $2, $3, $4, $5, $6)
             """,
             records,
         )

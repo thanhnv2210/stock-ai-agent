@@ -63,6 +63,24 @@ CREATE TABLE IF NOT EXISTS {SCHEMA}.symbol_groups (
 )
 """
 
+_CREATE_SIGNAL_HISTORY = f"""
+CREATE TABLE IF NOT EXISTS {SCHEMA}.signal_history (
+    id            SERIAL           PRIMARY KEY,
+    run_date      DATE             NOT NULL,
+    analysis_date DATE             NOT NULL,
+    symbol        VARCHAR(20)      NOT NULL,
+    group_name    VARCHAR(50)      NOT NULL,
+    signal        VARCHAR(10)      NOT NULL,
+    price         DOUBLE PRECISION NOT NULL,
+    created_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+)
+"""
+
+_CREATE_SIGNAL_HISTORY_IDX = f"""
+CREATE INDEX IF NOT EXISTS signal_history_symbol_run_date_idx
+    ON {SCHEMA}.signal_history (symbol, run_date)
+"""
+
 
 async def init_schema() -> None:
     """Create the stock_ai schema and all tables if they don't exist."""
@@ -73,5 +91,7 @@ async def init_schema() -> None:
         await conn.execute(_CREATE_SIGNALS)
         await conn.execute(_CREATE_WATCHLIST)
         await conn.execute(_CREATE_SYMBOL_GROUPS)
+        await conn.execute(_CREATE_SIGNAL_HISTORY)
+        await conn.execute(_CREATE_SIGNAL_HISTORY_IDX)
     finally:
         await conn.close()

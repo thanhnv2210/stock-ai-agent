@@ -40,7 +40,7 @@ from src.db.database import init_schema
 from src.db.repository import (
     get_last_date, get_factors, upsert_factors,
     get_last_signal_date, upsert_signals,
-    get_watchlist, save_symbol_groups,
+    get_watchlist, save_symbol_groups, save_signal_history,
 )
 
 # Primary group label priority when a symbol appears in multiple groups
@@ -107,7 +107,9 @@ class DailyPipeline:
         total = len(symbol_to_groups)
         print(f"\n{total} unique symbols across {len(groups)} groups.\n")
 
-        alerts: list[tuple] = []
+        # {group_name: [(symbol, signal_str, price), ...]}
+        group_results: dict[str, list[tuple]] = {g: [] for g in groups}
+        analysis_date: str = str(today)
 
         for symbol, group_set in symbol_to_groups.items():
             group_label = self._primary_group(symbol, symbol_to_groups)
@@ -129,21 +131,17 @@ class DailyPipeline:
                 latest = signals_df.iloc[-1]
                 signal = int(latest["Signal"])
                 price = float(latest["Close"])
-                latest_date = str(latest["Date"])[:10]
+                analysis_date = str(latest["Date"])[:10]
 
-                if signal == 1:
-                    alerts.append((symbol, "BUY", price, latest_date, group_label))
-                    print(f"  BUY  @ ${price:.2f} on {latest_date}")
-                elif signal == -1:
-                    alerts.append((symbol, "SELL", price, latest_date, group_label))
-                    print(f"  SELL @ ${price:.2f} on {latest_date}")
-                else:
-                    print(f"  HOLD @ ${price:.2f} on {latest_date}")
+                signal_str = {1: "BUY", -1: "SELL"}.get(signal, "HOLD")
+                print(f"  {signal_str} @ ${price:.2f} on {analysis_date}")
+                group_results[group_label].append((symbol, signal_str, price))
 
             except Exception as e:
                 print(f"  ERROR: {e}")
 
-        self._send_alert(alerts)
+        self._send_alert(group_results, analysis_date)
+        asyncio.run(save_signal_history(today, analysis_date, group_results))
 
     # ------------------------------------------------------------------
     # Incremental data fetch
@@ -179,25 +177,23 @@ class DailyPipeline:
     # Notifications
     # ------------------------------------------------------------------
 
-    def _send_alert(self, alerts: list[tuple]):
-        if not alerts:
-            self.notifier.send(
-                subject=f"Daily Pipeline ({date.today()}): No signals",
-                body="No buy/sell signals today.",
-            )
-            return
+    def _send_alert(self, group_results: dict[str, list[tuple]], analysis_date: str):
+        all_signals = [(sym, sig, price) for rows in group_results.values() for sym, sig, price in rows]
+        buy_count  = sum(1 for _, s, _ in all_signals if s == "BUY")
+        sell_count = sum(1 for _, s, _ in all_signals if s == "SELL")
 
-        buy_count = sum(1 for _, a, *_ in alerts if a == "BUY")
-        sell_count = sum(1 for _, a, *_ in alerts if a == "SELL")
+        subject = f"Daily Pipeline ({date.today()}): {buy_count} BUY, {sell_count} SELL"
 
-        lines = [
-            f"  [{group}] {sym}: {action} @ ${price:.2f} ({dt})"
-            for sym, action, price, dt, group in alerts
-        ]
-        self.notifier.send(
-            subject=f"Daily Pipeline ({date.today()}): {buy_count} BUY, {sell_count} SELL",
-            body="\n".join(lines),
-        )
+        body_lines = [f"Analysis date: {analysis_date}"]
+        for group_name, rows in group_results.items():
+            if not rows:
+                continue
+            body_lines.append(f"\n{group_name}")
+            _ORDER = {"BUY": 0, "HOLD": 1, "SELL": 2}
+            for sym, sig, price in sorted(rows, key=lambda r: _ORDER.get(r[1], 9)):
+                body_lines.append(f"{sig}: {sym} - ${price:.2f}")
+
+        self.notifier.send(subject=subject, body="\n".join(body_lines))
 
 
 if __name__ == "__main__":
