@@ -10,7 +10,11 @@
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -c \"\\\\dn\" 2>&1)",
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -c \"\\\\l\" 2>&1)",
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\\\\dn; \\\\dt *.*\" 2>&1)",
-      "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\nSELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'stock_ai';\nSELECT symbol, COUNT\\(*\\) AS rows, MIN\\(date\\) AS from_date, MAX\\(date\\) AS to_date\n  FROM stock_ai.ohlcv_factors GROUP BY symbol ORDER BY symbol;\nSELECT symbol, COUNT\\(*\\) AS signal_rows, SUM\\(CASE WHEN signal=1 THEN 1 ELSE 0 END\\) AS buy, SUM\\(CASE WHEN signal=-1 THEN 1 ELSE 0 END\\) AS sell\n  FROM stock_ai.signals GROUP BY symbol ORDER BY symbol;\n\" 2>&1)"
+      "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\nSELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'stock_ai';\nSELECT symbol, COUNT\\(*\\) AS rows, MIN\\(date\\) AS from_date, MAX\\(date\\) AS to_date\n  FROM stock_ai.ohlcv_factors GROUP BY symbol ORDER BY symbol;\nSELECT symbol, COUNT\\(*\\) AS signal_rows, SUM\\(CASE WHEN signal=1 THEN 1 ELSE 0 END\\) AS buy, SUM\\(CASE WHEN signal=-1 THEN 1 ELSE 0 END\\) AS sell\n  FROM stock_ai.signals GROUP BY symbol ORDER BY symbol;\n\" 2>&1)",
+      "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1&limit=5\")",
+      "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1\")"
     ]
   }
 }
