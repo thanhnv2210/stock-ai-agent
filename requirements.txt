@@ -2,3 +2,4 @@ yfinance
 pandas
 matplotlib
 asyncpg
+python-dotenv

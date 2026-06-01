@@ -21,6 +21,9 @@ from datetime import datetime, timedelta, date
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from src.agents.momentum_agent import MomentumAgent
 from src.data.fetch_data import fetch_stock_data

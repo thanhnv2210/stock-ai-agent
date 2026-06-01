@@ -14,7 +14,8 @@
       "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates\")",
       "Bash(python3 -m json.tool)",
       "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1&limit=5\")",
-      "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1\")"
+      "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1\")",
+      "Bash(source .env)"
     ]
   }
 }
