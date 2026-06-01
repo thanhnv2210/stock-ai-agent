@@ -15,7 +15,8 @@
       "Bash(python3 -m json.tool)",
       "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1&limit=5\")",
       "Bash(curl -s \"https://api.telegram.org/bot8439727395:AAG1WWdmdoRoFl9W0FcD0PjZlzFvh7EbMF8/getUpdates?offset=-1\")",
-      "Bash(source .env)"
+      "Bash(source .env)",
+      "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\n-- Check for duplicate \\(symbol, date\\) pairs in ohlcv_factors\nSELECT symbol, date, COUNT\\(*\\) AS cnt\nFROM stock_ai.ohlcv_factors\nGROUP BY symbol, date\nHAVING COUNT\\(*\\) > 1\nORDER BY symbol, date;\n\n-- Check for duplicate \\(symbol, date\\) pairs in signals\nSELECT symbol, date, COUNT\\(*\\) AS cnt\nFROM stock_ai.signals\nGROUP BY symbol, date\nHAVING COUNT\\(*\\) > 1\nORDER BY symbol, date;\n\" 2>&1)"
     ]
   }
 }

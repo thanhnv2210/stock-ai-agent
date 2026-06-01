@@ -37,12 +37,12 @@ def _to_int(val):
 # ohlcv_factors
 # ---------------------------------------------------------------------------
 
-async def get_last_date(symbol: str) -> date | None:
-    """Return the most recent date stored for a symbol, or None."""
+async def get_last_date(symbol: str, table: str = "ohlcv_factors") -> date | None:
+    """Return the most recent date stored for a symbol in the given table, or None."""
     conn = await asyncpg.connect(DB_DSN)
     try:
         row = await conn.fetchrow(
-            f"SELECT MAX(date) FROM {SCHEMA}.ohlcv_factors WHERE symbol = $1",
+            f"SELECT MAX(date) FROM {SCHEMA}.{table} WHERE symbol = $1",
             symbol,
         )
         return row[0]  # datetime.date or None
@@ -129,6 +129,10 @@ async def upsert_factors(symbol: str, df: pd.DataFrame) -> None:
 # ---------------------------------------------------------------------------
 # signals
 # ---------------------------------------------------------------------------
+
+async def get_last_signal_date(symbol: str) -> date | None:
+    """Return the most recent signal date stored for a symbol, or None."""
+    return await get_last_date(symbol, table="signals")
 
 async def upsert_signals(symbol: str, df: pd.DataFrame) -> None:
     """Upsert signal rows for a symbol."""

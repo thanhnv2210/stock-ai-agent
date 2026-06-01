@@ -30,7 +30,7 @@ from src.data.fetch_data import fetch_stock_data
 from src.features.factor_calculator_v1 import add_factors
 from src.notifications.notifier import Notifier
 from src.db.database import init_schema
-from src.db.repository import get_last_date, get_factors, upsert_factors, upsert_signals
+from src.db.repository import get_last_date, get_factors, upsert_factors, upsert_signals, get_last_signal_date
 
 
 class DailyPipeline:
@@ -53,7 +53,12 @@ class DailyPipeline:
                     continue
 
                 signals_df = self.agent.generate_signals(factors_df)
-                asyncio.run(upsert_signals(symbol, signals_df))
+                last_signal_date = asyncio.run(get_last_signal_date(symbol))
+                new_signals = (
+                    signals_df[signals_df["Date"].dt.date > last_signal_date]
+                    if last_signal_date else signals_df
+                )
+                asyncio.run(upsert_signals(symbol, new_signals))
 
                 latest = signals_df.iloc[-1]
                 signal = int(latest["Signal"])
