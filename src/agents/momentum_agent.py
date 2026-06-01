@@ -37,7 +37,7 @@ class MomentumAgent:
         df.loc[(df["SMA_5"] < df["SMA_20"]) | (df["RSI_14"] < self.rsi_threshold), "Signal"] = -1
 
         # Position: 1 = long, -1 = short, 0 = no position
-        df["Position"] = df["Signal"].replace(to_replace=0, method="ffill").fillna(0)
+        df["Position"] = df["Signal"].where(df["Signal"] != 0).ffill().fillna(0).astype(int)
 
         return df
 

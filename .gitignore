@@ -209,3 +209,5 @@ __marimo__/
 
 # My custom
 # data/
+logs/*.log
+.env

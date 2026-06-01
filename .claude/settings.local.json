@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/ThanhNguyen/AI_WS/stock-ai-agent/scripts/run_daily.sh)",
+      "Bash(source venv/bin/activate)",
+      "Bash(python -m src.jobs.daily_pipeline)",
+      "Bash(/Users/ThanhNguyen/AI_WS/stock-ai-agent/venv/bin/python -m src.jobs.daily_pipeline 2>&1)",
+      "Bash(python3 -c \"import yfinance, pandas\")",
+      "Bash(conda run:*)"
+    ]
+  }
+}

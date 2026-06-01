@@ -30,6 +30,7 @@ def fetch_stock_data(symbol: str, start: str, end: str, interval: str = "1d") ->
     ticker = yf.Ticker(symbol)
     df = ticker.history(start=start, end=end, interval=interval)
     df.reset_index(inplace=True)
+    df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
     return df
 
 
