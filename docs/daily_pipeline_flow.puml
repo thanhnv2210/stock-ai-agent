@@ -1,0 +1,121 @@
+@startuml daily_pipeline_flow
+title Stock AI Agent — Daily Pipeline Flow
+
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBackgroundColor #EBF5FB
+skinparam sequenceGroupBorderColor #2980B9
+skinparam sequenceLifeLineBorderColor #7F8C8D
+skinparam sequenceParticipantBackgroundColor #E8F4FD
+skinparam sequenceParticipantBorderColor #2980B9
+skinparam databaseBackgroundColor #EAF7EA
+skinparam databaseBorderColor #27AE60
+skinparam noteBackgroundColor #FEF9E7
+skinparam noteBorderColor #F39C12
+
+actor "Cron / User" as cron
+
+participant "DailyPipeline\n(daily_pipeline.py)" as pipeline
+participant "fetch_data.py" as fetcher
+participant "factor_calculator_v1.py" as calc
+participant "MomentumAgent\n(momentum_agent.py)" as agent
+participant "repository.py" as repo
+participant "Notifier\n(notifier.py)" as notifier
+
+database "tradingdb\nstock_ai schema" as db
+boundary "yfinance API" as yf
+boundary "Slack / Email" as alerts
+
+' ── Startup ──────────────────────────────────────────────────────────────────
+cron -> pipeline : python -m src.jobs.daily_pipeline
+activate pipeline
+
+pipeline -> repo : asyncio.run(init_schema())
+repo -> db : CREATE SCHEMA IF NOT EXISTS stock_ai\nCREATE TABLE IF NOT EXISTS ohlcv_factors\nCREATE TABLE IF NOT EXISTS signals
+db --> repo : ok
+repo --> pipeline : schema ready
+
+note over pipeline : Loop over each symbol\nin tickers.json\n(AAPL, MSFT, GOOG, TSLA,\nAMZN, BILI, SOUN, CRSP, TSM)
+
+' ── Per-symbol loop ───────────────────────────────────────────────────────────
+loop for each symbol
+
+  ' -- Check last stored date --
+  pipeline -> repo : asyncio.run(get_last_date(symbol))
+  repo -> db : SELECT MAX(date) FROM ohlcv_factors\nWHERE symbol = $1
+  db --> repo : last_date (or None)
+  repo --> pipeline : last_date
+
+  alt last_date >= yesterday (already up-to-date)
+    pipeline -> repo : asyncio.run(get_factors(symbol))
+    repo -> db : SELECT * FROM ohlcv_factors\nWHERE symbol = $1 ORDER BY date
+    db --> repo : rows
+    repo --> pipeline : full factors DataFrame
+  else needs update (last_date < yesterday OR no data)
+    note over pipeline : start_date = last_date + 1 day\n(or "2020-01-01" if no data)
+
+    ' -- Fetch OHLCV --
+    pipeline -> fetcher : fetch_stock_data(symbol, start, end)
+    fetcher -> yf : yf.Ticker(symbol).history(start, end)
+    yf --> fetcher : OHLCV DataFrame\n(Date tz-stripped)
+    fetcher --> pipeline : new OHLCV DataFrame
+
+    ' -- Compute factors --
+    pipeline -> calc : add_factors(new_data)
+    calc --> pipeline : DataFrame +SMA_5, SMA_20\n+RSI_14, MACD, MACD_Signal, MACD_Hist
+
+    ' -- Persist factors --
+    pipeline -> repo : asyncio.run(upsert_factors(symbol, new_factors))
+    repo -> db : INSERT INTO ohlcv_factors ... (N rows)\nON CONFLICT (symbol, date) DO UPDATE
+    db --> repo : ok
+    repo --> pipeline : done
+
+    ' -- Reload full history --
+    pipeline -> repo : asyncio.run(get_factors(symbol))
+    repo -> db : SELECT * FROM ohlcv_factors\nWHERE symbol = $1 ORDER BY date
+    db --> repo : all rows
+    repo --> pipeline : full factors DataFrame
+  end
+
+  ' -- Generate signals --
+  pipeline -> agent : generate_signals(factors_df)
+  note right of agent
+    Signal rules:
+    BUY  (+1): SMA_5 > SMA_20 AND RSI_14 > 50
+    SELL (-1): SMA_5 < SMA_20 OR  RSI_14 < 50
+    HOLD (0):  otherwise → forward-filled
+  end note
+  agent --> pipeline : signals DataFrame\n(Signal, Position columns)
+
+  ' -- Persist signals --
+  pipeline -> repo : asyncio.run(upsert_signals(symbol, signals_df))
+  repo -> db : INSERT INTO signals ... (N rows)\nON CONFLICT (symbol, date) DO UPDATE
+  db --> repo : ok
+  repo --> pipeline : done
+
+  ' -- Collect alert --
+  pipeline -> pipeline : read latest Signal\n(BUY / SELL / HOLD)
+
+end
+
+' ── Notifications ─────────────────────────────────────────────────────────────
+pipeline -> notifier : send(subject, body)
+note right of notifier
+  Always: print to console
+  Optional (env vars):
+  - SLACK_WEBHOOK_URL → Slack
+  - EMAIL_* → SMTP/email
+end note
+
+alt buy/sell signals found
+  notifier -> alerts : "N BUY, M SELL" summary
+else no signals
+  notifier -> alerts : "No signals today"
+end
+
+alerts --> notifier : delivered
+notifier --> pipeline : done
+
+deactivate pipeline
+
+@enduml

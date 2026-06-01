@@ -1,0 +1,98 @@
+@startuml architecture
+title Stock AI Agent — System Architecture
+
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam component {
+  BackgroundColor #E8F4FD
+  BorderColor #2980B9
+  FontColor #1A1A1A
+}
+skinparam database {
+  BackgroundColor #EAF7EA
+  BorderColor #27AE60
+}
+skinparam package {
+  BackgroundColor #FEF9E7
+  BorderColor #F39C12
+}
+skinparam node {
+  BackgroundColor #FDEDEC
+  BorderColor #E74C3C
+}
+
+' ── External ────────────────────────────────────────────────────────────────
+node "External" {
+  [yfinance API] as yf
+  [Slack Webhook] as slack
+  [SMTP Server] as smtp
+}
+
+' ── Config ──────────────────────────────────────────────────────────────────
+package "Config" {
+  [tickers.json\n(9 symbols)] as tickers
+  [.env\n(Slack / Email creds)] as envfile
+}
+
+' ── Scheduler ────────────────────────────────────────────────────────────────
+node "Scheduler" {
+  [cron\n(weekdays 18:00)] as cron
+  [scripts/run_daily.sh] as sh
+}
+
+' ── Application ─────────────────────────────────────────────────────────────
+package "src/jobs" {
+  [DailyPipeline] as pipeline
+}
+
+package "src/data" {
+  [fetch_data.py\nfetch_stock_data()] as fetcher
+}
+
+package "src/features" {
+  [factor_calculator_v1.py\nadd_factors()\nSMA5, SMA20, RSI14, MACD] as factors
+}
+
+package "src/agents" {
+  [momentum_agent.py\nMomentumAgent\ngenerate_signals()] as agent
+}
+
+package "src/db" {
+  [database.py\ninit_schema()] as dbinit
+  [repository.py\nget_last_date()\nget_factors()\nupsert_factors()\nupsert_signals()] as repo
+}
+
+package "src/notifications" {
+  [notifier.py\nNotifier.send()] as notifier
+}
+
+' ── Database ─────────────────────────────────────────────────────────────────
+database "PostgreSQL\ntradingdb:54320" {
+  [stock_ai.ohlcv_factors\n(symbol, date) PK\nOHLCV + SMA/RSI/MACD] as tbl_factors
+  [stock_ai.signals\n(symbol, date) PK\nsignal, position] as tbl_signals
+}
+
+' ── Relationships ─────────────────────────────────────────────────────────────
+cron --> sh
+sh --> pipeline
+
+tickers --> pipeline
+envfile --> notifier
+
+pipeline --> fetcher
+fetcher --> yf : ticker.history()
+
+pipeline --> factors : OHLCV DataFrame
+pipeline --> agent  : factors DataFrame
+pipeline --> repo
+pipeline --> notifier
+
+repo --> dbinit : init on startup
+repo --> tbl_factors : upsert / select
+repo --> tbl_signals : upsert
+
+notifier --> slack : webhook (optional)
+notifier --> smtp  : STARTTLS (optional)
+
+@enduml
