@@ -134,6 +134,42 @@ async def get_last_signal_date(symbol: str) -> date | None:
     """Return the most recent signal date stored for a symbol, or None."""
     return await get_last_date(symbol, table="signals")
 
+async def get_watchlist(group_name: str) -> list[str]:
+    """Return all symbols in a watchlist group."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        rows = await conn.fetch(
+            f"SELECT symbol FROM {SCHEMA}.watchlist WHERE group_name = $1 ORDER BY symbol",
+            group_name,
+        )
+        return [r["symbol"] for r in rows]
+    finally:
+        await conn.close()
+
+
+async def save_symbol_groups(run_date: date, groups: dict) -> None:
+    """Record which symbols were processed in each group for a given run date."""
+    records = [
+        (run_date, group_name, symbol)
+        for group_name, symbols in groups.items()
+        for symbol in symbols
+    ]
+    if not records:
+        return
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        await conn.executemany(
+            f"""
+            INSERT INTO {SCHEMA}.symbol_groups (run_date, group_name, symbol)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (run_date, group_name, symbol) DO NOTHING
+            """,
+            records,
+        )
+    finally:
+        await conn.close()
+
+
 async def upsert_signals(symbol: str, df: pd.DataFrame) -> None:
     """Upsert signal rows for a symbol."""
     records = []

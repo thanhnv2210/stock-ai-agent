@@ -45,13 +45,33 @@ CREATE TABLE IF NOT EXISTS {SCHEMA}.signals (
 )
 """
 
+_CREATE_WATCHLIST = f"""
+CREATE TABLE IF NOT EXISTS {SCHEMA}.watchlist (
+    symbol     VARCHAR(20) NOT NULL,
+    group_name VARCHAR(50) NOT NULL,
+    added_at   DATE        NOT NULL DEFAULT CURRENT_DATE,
+    PRIMARY KEY (symbol, group_name)
+)
+"""
+
+_CREATE_SYMBOL_GROUPS = f"""
+CREATE TABLE IF NOT EXISTS {SCHEMA}.symbol_groups (
+    run_date   DATE        NOT NULL,
+    group_name VARCHAR(50) NOT NULL,
+    symbol     VARCHAR(20) NOT NULL,
+    PRIMARY KEY (run_date, group_name, symbol)
+)
+"""
+
 
 async def init_schema() -> None:
-    """Create the stock_ai schema and tables if they don't exist."""
+    """Create the stock_ai schema and all tables if they don't exist."""
     conn = await asyncpg.connect(DB_DSN)
     try:
         await conn.execute(_CREATE_SCHEMA)
         await conn.execute(_CREATE_OHLCV_FACTORS)
         await conn.execute(_CREATE_SIGNALS)
+        await conn.execute(_CREATE_WATCHLIST)
+        await conn.execute(_CREATE_SYMBOL_GROUPS)
     finally:
         await conn.close()

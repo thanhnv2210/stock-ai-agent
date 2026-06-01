@@ -1,4 +1,7 @@
 {
-    "symbols": ["AAPL", "MSFT", "GOOG", "TSLA", "AMZN", "BILI", "SOUN", "CRSP", "TSM"]
+  "groups": {
+    "holdings":            { "type": "db" },
+    "potential":           { "type": "db" },
+    "nasdaq_top_turnover": { "type": "dynamic" }
+  }
 }
-  
