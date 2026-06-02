@@ -1,7 +1,7 @@
 # Proposal: Stock AI Dashboard
 
 **Date**: 2026-06-02
-**Status**: Proposed
+**Status**: Built
 **Author**: Claude Code
 
 ---
@@ -36,7 +36,7 @@ Template C (multi-process) is not needed since there is no Python AI service.
 | ORM | Drizzle ORM | Mirror existing `stock_ai` schema as read-only types |
 | Database | PostgreSQL — existing `tradingdb:54320` | `stock_ai` schema, read-only |
 | Charting | `lightweight-charts` (TradingView) | Purpose-built for OHLCV candlestick + indicator overlays |
-| Port | **3006** | Gap between `freelancer-copilot` (3005) and `ai-operations-portal` (3007) |
+| Port | **3016** | 3006 avoided — ai-operations-portal binds `[::1]:3006` causing browser conflict |
 
 ---
 
@@ -45,7 +45,8 @@ Template C (multi-process) is not needed since there is no Python AI service.
 ```
 App name  : stock-ai-dashboard
 Directory : /Users/ThanhNguyen/AI_WS/stock-ai-dashboard
-Port      : 3006
+Port      : 3016
+Git remote: git@github.com:thanhnv2210/stock-ai-dashboard.git
 ```
 
 ---
@@ -223,7 +224,7 @@ Follow the runbook's recommended sequence:
 # Stock AI Dashboard
 STOCK_DASH_DIR="/Users/ThanhNguyen/AI_WS/stock-ai-dashboard"
 STOCK_DASH_PID_FILE="/tmp/stock-ai-dashboard.pid"
-STOCK_DASH_PORT=3006
+STOCK_DASH_PORT=3016
 
 stock-dash-start() {
   echo "Starting Stock AI Dashboard..."
@@ -259,7 +260,7 @@ stock-dash-status() {
 ## 12. workspace-app-registry.md Entry
 
 ```
-| 3006 | stock-ai-dashboard | `AI_WS/stock-ai-dashboard` | Next.js 16 + TailwindCSS v4 + Drizzle ORM | `pnpm dev` (alias: `stock-dash-start`) |
+| 3016 | stock-ai-dashboard | `AI_WS/stock-ai-dashboard` | Next.js 16 + TailwindCSS v4 + Drizzle ORM | `pnpm dev` (alias: `stock-dash-start`) |
 ```
 
 Favicon concept: candlestick bar chart — 3 bars with wicks (green / red / grey), accent **Emerald `#10b981`**.
@@ -282,7 +283,7 @@ Local dashboard to view and verify stock signal analysis data produced by the st
 - Charting: lightweight-charts (TradingView)
 
 ## Ports
-- Frontend: 3006
+- Frontend: 3016
 
 ## Key Conventions
 - All DB access is read-only — SELECT queries only, no INSERT/UPDATE/DELETE

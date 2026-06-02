@@ -20,7 +20,23 @@
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\n-- Create new tables\nCREATE TABLE IF NOT EXISTS stock_ai.watchlist \\(\n    symbol     VARCHAR\\(20\\) NOT NULL,\n    group_name VARCHAR\\(50\\) NOT NULL,\n    added_at   DATE        NOT NULL DEFAULT CURRENT_DATE,\n    PRIMARY KEY \\(symbol, group_name\\)\n\\);\n\nCREATE TABLE IF NOT EXISTS stock_ai.symbol_groups \\(\n    run_date   DATE        NOT NULL,\n    group_name VARCHAR\\(50\\) NOT NULL,\n    symbol     VARCHAR\\(20\\) NOT NULL,\n    PRIMARY KEY \\(run_date, group_name, symbol\\)\n\\);\n\n-- Seed your existing 9 symbols as 'potential'\nINSERT INTO stock_ai.watchlist \\(symbol, group_name\\) VALUES\n  \\('AAPL', 'potential'\\), \\('MSFT', 'potential'\\), \\('GOOG', 'potential'\\),\n  \\('TSLA', 'potential'\\), \\('AMZN', 'potential'\\), \\('BILI', 'potential'\\),\n  \\('SOUN', 'potential'\\), \\('CRSP', 'potential'\\), \\('TSM',  'potential'\\)\nON CONFLICT DO NOTHING;\n\nSELECT group_name, COUNT\\(*\\) FROM stock_ai.watchlist GROUP BY group_name;\n\" 2>&1)",
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\nINSERT INTO stock_ai.watchlist \\(symbol, group_name\\) VALUES\n  \\('AAPL', 'holdings'\\),\n  \\('FIG',  'holdings'\\),\n  \\('TIGR', 'holdings'\\),\n  \\('SOUN', 'holdings'\\),\n  \\('COIN', 'holdings'\\)\nON CONFLICT DO NOTHING;\n\nSELECT symbol, group_name, added_at FROM stock_ai.watchlist ORDER BY group_name, symbol;\n\" 2>&1)",
       "Bash(PGPASSWORD=admin psql -h localhost -p 54320 -U admin -d tradingdb -c \"\nSELECT run_date, analysis_date, group_name, signal, COUNT\\(*\\) AS cnt\nFROM stock_ai.signal_history\nGROUP BY run_date, analysis_date, group_name, signal\nORDER BY group_name, signal;\n\" 2>&1)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(pnpm -v)",
+      "Bash(pnpm create:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(printf \"y\\\\n\")",
+      "Bash(ls:*)",
+      "Bash(pnpm build:*)",
+      "Bash(node:*)",
+      "Bash(open:*)",
+      "Bash(ps -p 27129 -o command=)",
+      "Bash(ps -p 67059 -o command=)",
+      "Bash(curl -s http://localhost:3006)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3007/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3008/)",
+      "Bash(ps:*)",
+      "Bash(git remote:*)"
     ]
   }
 }
