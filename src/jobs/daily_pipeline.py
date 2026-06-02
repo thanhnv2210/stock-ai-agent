@@ -41,7 +41,10 @@ from src.db.repository import (
     get_last_date, get_factors, upsert_factors,
     get_last_signal_date, upsert_signals,
     get_watchlist, save_symbol_groups, save_signal_history,
+    get_job_config, get_last_job_run, start_job_run, complete_job_run, fail_job_run,
 )
+
+JOB_NAME = "daily_pipeline"
 
 # Primary group label priority when a symbol appears in multiple groups
 _GROUP_PRIORITY = ["holdings", "potential", "nasdaq_top_turnover"]
@@ -55,6 +58,9 @@ class DailyPipeline:
         self.agent = MomentumAgent()
         self.notifier = Notifier()
         asyncio.run(init_schema())
+        job_cfg = asyncio.run(get_job_config(JOB_NAME))
+        self.allow_multiple_runs = job_cfg["allow_multiple_runs"] if job_cfg else False
+        self.enabled = job_cfg["enabled"] if job_cfg else True
 
     # ------------------------------------------------------------------
     # Group resolution
@@ -93,8 +99,38 @@ class DailyPipeline:
 
     def run(self):
         today = date.today()
-        print(f"\n=== Daily Pipeline: {today} ===")
+        print(f"\n=== {JOB_NAME}: {today} ===")
 
+        if not self.enabled:
+            print(f"  Job '{JOB_NAME}' is disabled in job_configs. Skipping.")
+            return
+
+        # Guard: prevent duplicate runs when allow_multiple_runs=false
+        if not self.allow_multiple_runs:
+            existing = asyncio.run(get_last_job_run(JOB_NAME, today))
+            if existing:
+                if existing["status"] == "completed":
+                    print(f"  Skipping — already completed for {today} "
+                          f"({existing['symbols_processed']} symbols at {existing['finished_at']}). "
+                          f"Set allow_multiple_runs=true in job_configs to override.")
+                    return
+                if existing["status"] == "running":
+                    print(f"  Aborting — already running for {today} "
+                          f"(started at {existing['started_at']}). "
+                          f"If stale, update the row status to 'failed' manually.")
+                    return
+        else:
+            print("  allow_multiple_runs=true — skipping duplicate-run guard.")
+
+        run_id = asyncio.run(start_job_run(JOB_NAME, today))
+
+        try:
+            self._run(today, run_id)
+        except Exception as e:
+            asyncio.run(fail_job_run(run_id, str(e)))
+            raise
+
+    def _run(self, today: date, run_id: int):
         groups = self._resolve_groups()
         asyncio.run(save_symbol_groups(today, groups))
 
@@ -142,6 +178,7 @@ class DailyPipeline:
 
         self._send_alert(group_results, analysis_date)
         asyncio.run(save_signal_history(today, analysis_date, group_results))
+        asyncio.run(complete_job_run(run_id, len(symbol_to_groups)))
 
     # ------------------------------------------------------------------
     # Incremental data fetch

@@ -34,6 +34,93 @@ def _to_int(val):
 
 
 # ---------------------------------------------------------------------------
+# job_configs
+# ---------------------------------------------------------------------------
+
+async def get_job_config(job_name: str) -> dict | None:
+    """Return the job_configs row for a given job_name, or None if not found."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        row = await conn.fetchrow(
+            f"SELECT * FROM {SCHEMA}.job_configs WHERE job_name = $1",
+            job_name,
+        )
+        return dict(row) if row else None
+    finally:
+        await conn.close()
+
+
+# ---------------------------------------------------------------------------
+# job_runs
+# ---------------------------------------------------------------------------
+
+async def get_last_job_run(job_name: str, run_date: date) -> dict | None:
+    """Return the most recent job_runs row for a given job and date, or None."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        row = await conn.fetchrow(
+            f"""
+            SELECT * FROM {SCHEMA}.job_runs
+            WHERE job_name = $1 AND run_date = $2
+            ORDER BY id DESC LIMIT 1
+            """,
+            job_name, run_date,
+        )
+        return dict(row) if row else None
+    finally:
+        await conn.close()
+
+
+async def start_job_run(job_name: str, run_date: date) -> int:
+    """Insert a new job_runs row with status=running. Returns the new run id."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        row = await conn.fetchrow(
+            f"""
+            INSERT INTO {SCHEMA}.job_runs (job_name, run_date, status, started_at)
+            VALUES ($1, $2, 'running', NOW())
+            RETURNING id
+            """,
+            job_name, run_date,
+        )
+        return row["id"]
+    finally:
+        await conn.close()
+
+
+async def complete_job_run(run_id: int, symbols_processed: int) -> None:
+    """Mark a job run as completed."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        await conn.execute(
+            f"""
+            UPDATE {SCHEMA}.job_runs
+            SET status = 'completed', finished_at = NOW(), symbols_processed = $2
+            WHERE id = $1
+            """,
+            run_id, symbols_processed,
+        )
+    finally:
+        await conn.close()
+
+
+async def fail_job_run(run_id: int, error_message: str) -> None:
+    """Mark a job run as failed."""
+    conn = await asyncpg.connect(DB_DSN)
+    try:
+        await conn.execute(
+            f"""
+            UPDATE {SCHEMA}.job_runs
+            SET status = 'failed', finished_at = NOW(), error_message = $2
+            WHERE id = $1
+            """,
+            run_id, error_message,
+        )
+    finally:
+        await conn.close()
+
+
+# ---------------------------------------------------------------------------
 # ohlcv_factors
 # ---------------------------------------------------------------------------
 
@@ -191,6 +278,11 @@ async def save_signal_history(
             INSERT INTO {SCHEMA}.signal_history
                 (run_date, analysis_date, symbol, group_name, signal, price)
             VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (run_date, symbol) DO UPDATE SET
+                analysis_date = EXCLUDED.analysis_date,
+                group_name    = EXCLUDED.group_name,
+                signal        = EXCLUDED.signal,
+                price         = EXCLUDED.price
             """,
             records,
         )
