@@ -12,6 +12,16 @@ pip install -r requirements.txt
 
 Dependencies: `yfinance`, `pandas`, `matplotlib`
 
+## Local Running
+
+Use the Conda `analysis` environment for all Python scripts locally:
+
+```bash
+conda run -n analysis python -m src.jobs.daily_pipeline
+```
+
+All commands below can be prefixed with `conda run -n analysis` instead of activating the venv.
+
 ## Common Commands
 
 All `src` modules must be run from the project root using `python -m` to resolve internal imports correctly:
